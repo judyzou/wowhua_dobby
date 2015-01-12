@@ -12,10 +12,10 @@ from fabric.utils import abort
 
 _addresses = {
     'live': {
-        'cron': ['202.85.208.98'],
+        'cron': ['202.85.216.122'],
         'admin': ['202.85.216.122'],
-        'api': ['202.85.208.98']
-        #'api': ['202.85.208.98', '202.85.216.122']
+        'cms': ['202.85.216.121'],
+        'api': ['202.85.208.98', '202.85.216.122']
     }
 }
 
@@ -40,7 +40,9 @@ def get_hosts(env, role='all'):
     else:
         ids = []
         for part in _addresses[env].values():
-            ids.extend(part)
+            for host in part:
+                if host not in ids:
+                    ids.append(host)
     hosts = ['{}'.format(id_) for id_ in ids]
     return hosts
 

@@ -5,7 +5,7 @@ import os
 from fabric.api import run, cd
 from fabric.context_managers import settings
 from fabric.contrib.console import confirm
-from fabric.operations import sudo
+from fabric.operations import sudo, put
 from fabric.state import env
 from fabric.utils import abort
 from dobby.config import get_config_repo
@@ -15,9 +15,11 @@ from dobby.utils import zch, zchenv, VIRTUALENV
 
 
 __all__ = [
-    'hosts', 'update', 'current', 'upstart', 'upstart_job', 'script',
-    'update_scripts', 'munin_plugin', 'platform', 'config', 'cron', 'init_code',
+    'hosts', 'setup_zch', 'init_code', 'update_code', 'install_upstarts',
+    'current', 'update', 'config', 'upstart', 'upstart_job', 'script',
+    'munin_plugin', 'platform', 'cron',
 ]
+
 
 CRON_PATH = '/etc/cron.d'
 
@@ -56,6 +58,21 @@ def platform(subnet, role, confirmed=None):
     env.zch_subnet = subnet
 
 
+def setup_zch():
+    with settings(warn_only=True):
+        if sudo('test -d /zch').failed:
+            put('./provision.sh', '/home/leopold')
+            sudo('bash provision.sh')
+            sudo("echo '%sudo   ALL=(zch) NOPASSWD: /bin/bash' >> /etc/sudoers")
+            with zch():
+                sudo('mkdir -p /zch/virtualenvs /zch/src /zch/.ssh')
+                sudo('virtualenv /zch/virtualenvs/zchenv')
+            put('./deploy_keys/wowhua', '/zch/.ssh', use_sudo=True, mode=0600)
+            put('./deploy_keys/ssh_config', '/zch/.ssh/config', use_sudo=True, mode=0600)
+            sudo('chown zch.zch /zch/.ssh/wowhua')
+            sudo('chown zch.zch /zch/.ssh/config')
+
+
 def update(rev):
     """
     update `live_scripts`; update ticket center and install new packages
@@ -77,7 +94,6 @@ def current():
     show current version of ticket center
     """
     with zch():
-        sudo('whoami')
         with cd('/zch/src/wowhua_box'):
             sudo('hg summary')
             sudo('whoami')
@@ -127,6 +143,10 @@ def upstart(action):
     for job in get_jobs(env.zch_role):
         upstart_job(action, job)
 
+def install_upstarts():
+    for job in ['api-gunicorn', 'admin-gunicorn']:
+        upstart_job('install', job)
+
 
 ALLOWED_SCRIPT_TYPES = {
     'py': 'python',
@@ -169,32 +189,24 @@ def script(name, args=None, ext=None):
                     sudo('bash {}'.format(cmd))
 
 def init_code():
-    update_source()
-    update_scripts()
+    with zch():
+        with settings(warn_only=True):
+            if sudo('test -d /zch/src/wowhua_box').failed:
+                sudo('hg clone ssh://hg@bitbucket.org/lingxiaoinc/wowhua_box/ ' +
+                     '/zch/src/wowhua_box')
+            if sudo('test -d /zch/live_scripts').failed:
+                sudo('ln -s /zch/src/wowhua_box/live_scripts /zch/live_scripts')
+        with cd('/zch/src/wowhua_box'):
+            with zchenv():
+                sudo('pip install -r requirements.txt')
+    config()
 
-def update_source():
+def update_code():
     """
     update source
     """
     with zch():
-        with settings(warn_only=True):
-            if sudo('test -d /zch/src/wowhua_box').failed:
-                sudo('hg clone ssh://hg@bitbucket.org/predawning/wowhua_box/ ' +
-                     '/zch/src/wowhua_box')
         with cd('/zch/src/wowhua_box'):
-            sudo('hg pull -u')
-
-
-def update_scripts():
-    """
-    update live_scripts
-    """
-    with zch():
-        with settings(warn_only=True):
-            if sudo('test -d /zch/live_scripts').failed:
-                sudo('hg clone ssh://hg@bitbucket.org/predawning/wowhua_script/ ' +
-                     '/zch/live_scripts')
-        with cd('/zch/live_scripts'):
             sudo('hg pull -u')
 
 
