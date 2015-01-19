@@ -72,6 +72,9 @@ def setup_zch():
             sudo('chown zch.zch /zch/.ssh/wowhua')
             sudo('chown zch.zch /zch/.ssh/config')
 
+            put('./cron/ntp_time', '/etc/cron.daily/', use_sudo=True, mode=0700)
+            sudo('chown root.root /etc/cron.daily/ntp_time')
+
 
 def update(rev):
     """
@@ -143,9 +146,10 @@ def upstart(action):
     for job in get_jobs(env.zch_role):
         upstart_job(action, job)
 
+
 def install_upstarts():
     for job in ['api-gunicorn', 'admin-gunicorn']:
-        upstart_job('install', job)
+        upstart_job('link', job)
 
 
 ALLOWED_SCRIPT_TYPES = {
@@ -234,21 +238,17 @@ def config():
             sudo('/zch/live_scripts/bin/link_config.py {}'.format(config_dir))
 
 
-def cron(name, command, tab, user='zch', state='present'):
+def cron(name, state='present'):
     """
     install a cron job
 
     :param name: name to identify the cron job
-    :param command: cron job command
-    :param tab: cron job schedule. For example, "*/5 * * * *"
-    :param user: user to run the cron job. Default is "zch"
     :param state: one of 'present' or 'absent'
     """
-    tab_path = os.path.join(CRON_PATH, '{}_{}'.format(user, name))
+    tab_path = os.path.join(CRON_PATH, name)
     if state == 'absent':
         sudo('rm -f {}'.format(tab_path))
     elif state == 'present':
-        job = '{}\t{}\t{}'.format(tab, user, command)
-        sudo('echo "{}" > {}'.format(job, tab_path))
+        sudo('cp /zch/live_scripts/cron/{} {}'.format(name, tab_path))
     else:
         abort('state can only be "present" or "absent"')

@@ -12,12 +12,9 @@ _jobs = {
         'worker-script',
         'resulting-gunicorn',
     ],
-    'singleton': [
-        'gsm',
-        'listener-resulting',
+    'cms':['cms-gunicorn'],
+    'admin': [
         'admin-gunicorn',
-        'merchant-gunicorn',
-        'query-balance',
     ],
     'api': [
         'api-gunicorn'

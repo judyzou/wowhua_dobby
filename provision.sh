@@ -8,3 +8,4 @@ wget https://bootstrap.pypa.io/get-pip.py
 sudo python get-pip.py
 sudo pip install virtualenvwrapper
 sudo adduser zch --disabled-login --home /zch
+sudo apt-get install ntp
